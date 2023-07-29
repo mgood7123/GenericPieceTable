@@ -26,7 +26,7 @@ tho technically piece tables trade memory usage for speed
          calloc|          0              0              0
            free|       7825         370128
 
-    StringPieceTable     :
+    MiniDoc::String     :
 
         ==640947==   total heap usage: 4,355 allocs, 4,355 frees, 400,667 bytes allocated
 
@@ -203,6 +203,9 @@ in the below implementation, we use
 the `content` is then appended to the respective `buffer`, eg `buffer = buffer + content` in which `buffer` is `std::string`
 
 ```cpp
+
+// namespace MiniDoc
+
 struct String : public GenericPieceTable<
     std::list<GenericPieceTableDescriptor>,
     std::list<GenericPieceTableDescriptorOrder>,
@@ -433,7 +436,7 @@ GenericPieceTableDescriptorOrderFunctions<DESCRIPTOR_ORDER_CONTAINER_T> descript
 
 this `Info` struct defines a few functions that are self explanatory, and is merely for convinience of having less variables and functions
 
-the `buffer` is any container which satisfies the `origin_functions` and `append_functions` requirements, in which the example `StringPieceTable` comments each function
+the `buffer` is any container which satisfies the `origin_functions` and `append_functions` requirements, in which the example `MiniDoc::String` comments each function
 
 the `pieces` is any container which satisfies the `descriptor_functions` requirements, and additionally must use `non-invalidating references` in which a reference `MUST NOT` be `invalidated` upon a `resize` operation (anything that changes the length of the internal buffer counts as a `resize`)
  - for example, a `vector of int` and you obtain a reference to an element
