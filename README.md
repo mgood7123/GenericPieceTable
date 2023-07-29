@@ -431,7 +431,7 @@ GenericPieceTableDescriptorFunctions<DESCRIPTOR_CONTAINER_T> descriptor_function
 GenericPieceTableDescriptorOrderFunctions<DESCRIPTOR_ORDER_CONTAINER_T> descriptor_order_functions;
 ```
 
-this `Info` struct defines a few functions that are self explanatory, and is merely for convinience of having `2` variables instead of `6` variables
+this `Info` struct defines a few functions that are self explanatory, and is merely for convinience of having less variables and functions
 
 the `buffer` is any container which satisfies the `origin_functions` and `append_functions` requirements, in which the example `StringPieceTable` comments each function
 
