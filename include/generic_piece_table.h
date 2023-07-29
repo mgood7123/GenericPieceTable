@@ -697,7 +697,7 @@ namespace MiniDoc {
 
     struct StringMockPieceTable {
         
-        using THIS = String;
+        using THIS = StringMockPieceTable;
         
         using ORIGIN_CHAR_CONTAINER_T = const char*;
         using APPEND_CHAR_CONTAINER_T = const char*;
