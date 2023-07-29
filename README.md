@@ -191,8 +191,8 @@ both `.string()` and `operator<<` are expensive operations since `all descriptor
 
 in the below implementation, we use
  - `linked list` to supply the container for the descriptors
- -   a `vector` cannot be used since the descriptors would be `moved` during reallocation
- -   we could use an index however this would be complicated to manage with descriptor insertion
+   - a `vector` cannot be used since the descriptors would be `moved` during reallocation
+   - we could use an index however this would be complicated to manage with descriptor insertion
  - `const char *` as the origin input
  - `const char *` as the append input
  - `std::string` as the origin buffer type
@@ -276,8 +276,8 @@ the `origin descriptors`, `append descriptors`, and `ordered descriptors` all ma
 
 we could merge `origin descriptors`, `append descriptors` into `ordered descriptors` but then when editing certain buffers we would need to sort through potentially many descriptors that are unrelated to the buffer being edited
  - for example, we want to edit the origin buffer 
- -   if we have 2 origin descriptors, and 500 append descriptors (all prepended edits, eg `"ORIGINAL TEXT" -> "PREPENDED TEXT, ORIGINAL TEXT"`)
- -   then we would need to look through all 500 append descriptors before we get to the origin descriptors, thats a lot of descriptor checking !
+   - if we have 2 origin descriptors, and 500 append descriptors (all prepended edits, eg `"ORIGINAL TEXT" -> "PREPENDED TEXT, ORIGINAL TEXT"`)
+   - then we would need to look through all 500 append descriptors before we get to the origin descriptors, thats a lot of descriptor checking !
 
 #### beyond this point we discuss the details of the function implementations (both `public` and `non-public` ) (all debug lines omitted)
 
@@ -437,12 +437,12 @@ the `buffer` is any container which satisfies the `origin_functions` and `append
 
 the `pieces` is any container which satisfies the `descriptor_functions` requirements, and additionally must use `non-invalidating references` in which a reference `MUST NOT` be `invalidated` upon a `resize` operation (anything that changes the length of the internal buffer counts as a `resize`)
  - for example, a `vector of int` and you obtain a reference to an element
- -   if you expand or shrink the vector this reference will be `invalidated` due to `realloc-like` behaviour of `contigious array resizing`
- -     execute `man realloc` in your local unix terminal (or look up the manpage online)
- -     or look up `std::vector iterator invalidation`
+   - if you expand or shrink the vector this reference will be `invalidated` due to `realloc-like` behaviour of `contigious array resizing`
+     - execute `man realloc` in your local unix terminal (or look up the manpage online)
+     - or look up `std::vector iterator invalidation`
  - a `list of int` does not have this `invalidating` behaviour upon `expand or shrink` of the list like a `vector` does
- -   this is because each `int` is stored in an `allocated Node-like object` and `does not move during a resize-like operation`
- -   look up `linked list data structure`
+   - this is because each `int` is stored in an `allocated Node-like object` and `does not move during a resize-like operation`
+   - look up `linked list data structure`
 
 `PLEASE NOTE` that a `reference` is explicitly used, this is because using an `iterator invalidating data structure` would require complex `index tracking` for `descriptor insertion` logic to keep all indexes up-to-date
  - this `index updating` can be `expensive with large amounts of descriptors`
