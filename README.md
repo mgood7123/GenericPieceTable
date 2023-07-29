@@ -643,13 +643,20 @@ if we are erasing the entire buffer then we can simply call `reset()` and be don
     auto diff = clamped_position_start - target_start.third;
     auto old_length = target_start.first->ptr->length;
     target_start.first->ptr->length = diff;
+```
+if we are not erasing the entire buffer, then chop the text of the start buffer
+
+```cpp
     if (target_start.second == target_end.second) {
+```
+if we are modiifying the same buffer
+
+```cpp
         if (target_start.third == clamped_position_start) {
             auto new_len = old_length - ((target_end.third + old_length) - clamped_position_end);
             *target_start.first->ptr = {target_start.first->ptr->start + new_len, old_length - new_len};
 ```
-so, if we are modiifying the same buffer, and the start index points to the start of our buffer, then we simply offset the start and length, `"ABCDEF" > "DEF"`
-
+if the start index points to the start of our buffer, then we simply offset the start and length, `"ABCDEF" > "DEF"`
 ```cpp
         } else {
             auto & piece = target_start.first->origin ? origin_info.pieces : append_info.pieces;
@@ -661,7 +668,7 @@ so, if we are modiifying the same buffer, and the start index points to the star
             piece_order_size++;
         }
 ```
-otherwise if we are modifying the same buffer, and our start index is not pointing to the start of our buffer, then we split into 2 pieces, `"ABCDEF" > "ABC" "EF"`, calculating the offsets for the `descriptors` and insert those into `piece_order`
+otherwise insert the chopped text, `"ABCDEF" > "ABC" "EF"`, calculating the offsets for the `descriptors` and insert those into `piece_order`
 
 you should know the details by know
 
@@ -703,7 +710,7 @@ insert descriptor
     }
 }
 ```
-otherwise, we are erasing multiple buffers
+otherwise we are erasing multiple buffers
 
 if we are not at the end then we offset the start pointer
 
