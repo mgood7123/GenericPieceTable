@@ -695,7 +695,7 @@ namespace MiniDoc {
         return os << "GenericPieceTable end";
     }
 
-    struct String {
+    struct StringMockPieceTable {
         
         using THIS = String;
         
@@ -907,7 +907,6 @@ namespace MiniDoc {
         std::list<GenericPieceTableDescriptorOrder>,
         const char*, const char*, std::string, std::string
     > {
-        // ==634467==   total heap usage: 4,355 allocs, 4,355 frees, 400,667 bytes allocated
         StringPieceTable() : GenericPieceTable(
             { // descriptor
                 // reset

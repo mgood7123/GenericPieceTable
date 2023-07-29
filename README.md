@@ -5,7 +5,7 @@ a C++ templated Piece Table implementation
 $ make CC=clang CXX=clang++ test_debug_ninja_valgrind && memusage --total --png=png -t -m ./debug_EXECUTABLE/GenericPieceTable_Tests
 ```
 
-we provide 3 basic implementations, `String` is a `mock` version that forwards everything to `std::string`
+we provide 3 basic implementations, `MiniDoc::StringMockPieceTable` is a `mock` version that forwards everything to `std::string`
 
 
 `std::string` uses half the memory we do!
@@ -15,7 +15,7 @@ tho technically piece tables trade memory usage for speed
  - with `std::string` the performance of `non-end` modifications degrades as the buffer gets larger and larger
 
 ```
-    CharListPieceTable   :
+    MiniDoc::CharListPieceTable   :
 
         ==641371==   total heap usage: 7,827 allocs, 7,827 frees, 443,848 bytes allocated
 
@@ -26,7 +26,7 @@ tho technically piece tables trade memory usage for speed
          calloc|          0              0              0
            free|       7825         370128
 
-    MiniDoc::String     :
+    MiniDoc::StringPieceTable     :
 
         ==640947==   total heap usage: 4,355 allocs, 4,355 frees, 400,667 bytes allocated
 
@@ -37,7 +37,7 @@ tho technically piece tables trade memory usage for speed
          calloc|          0              0              0
            free|       4353         326947
 
-    String               :
+    MiniDoc::StringMockPieceTable               :
 
         ==640483==   total heap usage: 1,606 allocs, 1,606 frees, 246,577 bytes allocated
 
@@ -436,7 +436,7 @@ GenericPieceTableDescriptorOrderFunctions<DESCRIPTOR_ORDER_CONTAINER_T> descript
 
 this `Info` struct defines a few functions that are self explanatory, and is merely for convinience of having less variables and functions
 
-the `buffer` is any container which satisfies the `origin_functions` and `append_functions` requirements, in which the example `MiniDoc::String` comments each function
+the `buffer` is any container which satisfies the `origin_functions` and `append_functions` requirements, in which the example `MiniDoc::StringPieceTable` comments each function
 
 the `pieces` is any container which satisfies the `descriptor_functions` requirements, and additionally must use `non-invalidating references` in which a reference `MUST NOT` be `invalidated` upon a `resize` operation (anything that changes the length of the internal buffer counts as a `resize`)
  - for example, a `vector of int` and you obtain a reference to an element
