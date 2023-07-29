@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 3.4.1)
+
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+testBuilder_add_source(GenericPieceTable_Tests GenericPieceTable_Tests.cpp)
+testBuilder_add_library(GenericPieceTable_Tests gtest_main)
+testBuilder_add_library(GenericPieceTable_Tests GenericPieceTable)
+testBuilder_build(GenericPieceTable_Tests EXECUTABLES)
