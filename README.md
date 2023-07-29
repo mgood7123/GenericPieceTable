@@ -301,9 +301,6 @@ const char operator[](std::size_t index) const {
             // avoid looping through the entire descriptor to find our index
             auto buffer_index = descriptor.start + (index - LEN);
             auto char_ = (order.origin ? origin_info : append_info).container_index_to_char(buffer_index);
-            if (debug) {
-                std::cout << "lookup return character " << char_ << std::endl;
-            }
             return char_;
         }
         LEN = next_LEN;
