@@ -11,6 +11,9 @@ we provide 3 basic implementations, `String` is a `mock` version that forwards e
 `std::string` uses half the memory we do!
  - however this may be due to `small-string-optimization` since we only tested with small buffers
 
+tho technically piece tables trade memory usage for speed
+ - with `std::string` the performance of `non-end` modifications degrades as the buffer gets larger and larger
+
 ```
     CharListPieceTable   :
 
