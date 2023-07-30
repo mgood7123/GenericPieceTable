@@ -284,7 +284,7 @@ we could merge `origin descriptors`, `append descriptors` into `ordered descript
 
 #### beyond this point we discuss the details of the function implementations (both `public` and `non-public` ) (all debug lines omitted)
 
-##### index operator
+## implementation details - index operator
 
 ```cpp
 const char operator[](std::size_t index) const {
@@ -384,7 +384,7 @@ if our index `is in range` then we return the character that corresponds to that
 -   `for (i = des.start; i < (des.start + des.length); i++) { if (LEN == index) ... LEN++ }` is equivilant to `des.start + (index - LEN)`
 -   and we know our index MUST be inside this range so `LEN == index` is gaurenteed to be true here
 
-##### lookup
+## implementation details - lookup
 
 ```cpp
 triple<const GenericPieceTableDescriptorOrder *, std::size_t, std::size_t, bool>
@@ -458,7 +458,7 @@ the `descriptor_functions` operate on `pieces` variable of the `Info` struct
 
 `piece_order_size` is the cached length of the `piece_order`, how many elements it currently contains
 
-##### split_insert
+## implementation details - split_insert
 
 this one is a long one so lets split this into chunks, ironically
 
@@ -617,7 +617,7 @@ insert the rest of the chopped text `"D"` into the buffer specified by `target_s
 
 then return the reference to the empty descriptor
 
-##### split_erase
+## implementation details - split_erase
 
 this one is another long one so lets split this into chunks, ironically
 
@@ -718,7 +718,7 @@ if we are erasing more than 2 buffers ( `"Agw", "ewgwgBgww", "C3r34w"` ) then we
 
 and we are done with erase
 
-##### the rest
+## implementation details - the rest
 
 now that we have `split_insert` and `split_erase` done, the rest is straight forward
 
