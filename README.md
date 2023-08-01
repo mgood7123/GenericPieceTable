@@ -868,7 +868,9 @@ our solution to this is both simple and a bit complex - `User Data`
 
 to implement this, we need to modify our generic piece table to support this
 
+```
 please view the git diff for this as the changes are too complex to explain
+```
 
 all we need to know is we implement `CharListPieceTableWithCharacterInformation` and `StringPieceTableWithCharacterInformation` as examples of this `User Data` usage
 
@@ -883,3 +885,7 @@ both `CharListPieceTable` and `StringPieceTable` add the following variables
 we expect certain behaviour to be exibited here, look at either `CharListPieceTableWithCharacterInformation` or `StringPieceTableWithCharacterInformation` for details
 
 i have not tested this extensively but it works for most cases
+
+the `User Data` can be iterated via `descriptor_at` and `descriptor_cout`, this enables operations such as, for example, `line_at`
+
+an implementation of a `StringPieceTable` with `newline information` will available soon
