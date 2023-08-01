@@ -5,8 +5,10 @@ a C++ templated Piece Table implementation
 $ make CC=clang CXX=clang++ test_debug_ninja_valgrind && memusage --total --png=png -t -m ./debug_EXECUTABLE/GenericPieceTable_Tests
 ```
 
-we provide 3 basic implementations, `MiniDoc::StringMockPieceTable` is a `mock` version that forwards everything to `std::string`
-
+we provide 3 basic implementations
+ - `MiniDoc::StringMockPieceTable` is a `mock` version that forwards everything to `std::string`, it `does not extend GenericPieceTable`
+ - `MiniDoc::CharListPieceTable` is a Piece Table that uses `std::list<char>` as the buffer type
+ - `MiniDoc::StringPieceTable` is a Piece Table that uses `std::string` as the buffer type
 
 `std::string` uses half the memory we do!
  - however this may be due to `small-string-optimization` since we only tested with small buffers
