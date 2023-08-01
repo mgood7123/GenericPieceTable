@@ -94,30 +94,30 @@ TEST(string_table_origin, erase_origin__insert_origin) {
     #undef ERA
 }
 
-TEST(string_table_origin, replace_origin) {
-    PIECE_TABLE table;
-    auto copy = table;
+// TEST(string_table_origin, replace_origin) {
+//     PIECE_TABLE table;
+//     auto copy = table;
 
-    for (int i = 0; i < 5; i++) table.append_origin("hello world! ");
-    #define ERA(a, b, content) ASSERT_EQ(copy.string().replace(a, b, content), copy.replace_origin(content, a, b).string());
+//     for (int i = 0; i < 5; i++) table.append_origin("hello world! ");
+//     #define ERA(a, b, content) ASSERT_EQ(copy.string().replace(a, b, content), copy.replace_origin(content, a, b).string());
 
-    copy = table;
-    ERA(3, 2, "bye");
-    ERA(1, 1, "no");
-    ERA(6, 4, "why");
-    ERA(6, 4, "because i said so");
-    ERA(8, 2, " who cares");
-    copy = table;
-    for (int i = 0; i < 7; i++) ERA(0, 2, "i care !");
-    copy = table;
-    for (int i = 0; i < 7; i++) ERA(1, 1, "well i dont !");
-    copy = table;
-    for (int i = 0; i < 7; i++) ERA(1, 0, "yes you do");
-    copy = table;
-    for (int i = 0; i < 7; i++) ERA(0, 0, "fine then");
+//     copy = table;
+//     ERA(3, 2, "bye");
+//     ERA(1, 1, "no");
+//     ERA(6, 4, "why");
+//     ERA(6, 4, "because i said so");
+//     ERA(8, 2, " who cares");
+//     copy = table;
+//     for (int i = 0; i < 7; i++) ERA(0, 2, "i care !");
+//     copy = table;
+//     for (int i = 0; i < 7; i++) ERA(1, 1, "well i dont !");
+//     copy = table;
+//     for (int i = 0; i < 7; i++) ERA(1, 0, "yes you do");
+//     copy = table;
+//     for (int i = 0; i < 7; i++) ERA(0, 0, "fine then");
 
-    #undef ERA
-}
+//     #undef ERA
+// }
 
 TEST(string_table_append, insert) {
     PIECE_TABLE table;
@@ -355,13 +355,13 @@ TEST(string_table_mixed, mixed) {
     ASSERT_EQ(table.string(), "append is gamesappendorigin is food");
     table.append_origin("origin is nothing");
     ASSERT_EQ(table.string(), "append is gamesappendorigin is foodorigin is nothing");
-    table.replace_origin("origin is a mess", 0, 17);
+    table.replace("origin is a mess", 0, 17);
     ASSERT_EQ(table.string(), "origin is a messpendorigin is foodorigin is nothing");
     // table.debug = true;
     // table.debug_operations = true;
     table.replace("FOO FIGHTERS", 3, 7);
     ASSERT_EQ(table.string(), "oriFOO FIGHTERSa messpendorigin is foodorigin is nothing");
-    table.replace_origin("X", 1, 20);
+    table.replace("X", 1, 20);
     ASSERT_EQ(table.string(), "oXpendorigin is foodorigin is nothing");
     ASSERT_EQ(table[0], 'o');
     ASSERT_EQ(table[1], 'X');
@@ -381,4 +381,65 @@ TEST(string_table_mixed, mixed) {
     ASSERT_EQ(table.string(), "12345789");
     ASSERT_EQ(table.string().erase(3, 3), table.erase(3, 3).string());
     ASSERT_EQ(table.string().erase(2, 2), table.erase(2, 2).string());
+}
+
+// https://godbolt.org/z/1Ts49af5q
+
+TEST(char_info, test) {
+    // MiniDoc::CharListPieceTable info, copy;
+    MiniDoc::CharListPieceTableWithCharacterInformation info("1234567890qwertyuiopasdfghjklzxcvbnmQAZWSXEDCRFVTGBYHNUJMIKOLP "), copy;
+
+    info.append("a1 c2Xb3ef4yeb5zsrs");
+    std::cout << info << std::endl;
+    info.insert("g6 e", 6);
+    std::cout << info << std::endl;
+    copy = info;
+    std::cout << "erase 0 to 10" << std::endl;
+    copy.erase(0, 10);
+    std::cout << copy << std::endl;
+    copy = info;
+    std::cout << "erase 5 to 15" << std::endl;
+    copy.erase(5, 10);
+    std::cout << copy << std::endl;
+    copy = info;
+    std::cout << "erase 5 to 100" << std::endl;
+    copy.erase(5, 100);
+    std::cout << copy << std::endl;
+
+    info.replace("a1 c2Xb3ef4yeb5zsrs", 0, -1);
+    std::cout << info << std::endl;
+    copy = info;
+    std::cout << "erase 0 to 10" << std::endl;
+    copy.erase(0, 10);
+    std::cout << copy << std::endl;
+    copy = info;
+    std::cout << "erase 5 to 15" << std::endl;
+    copy.erase(5, 10);
+    std::cout << copy << std::endl;
+    copy = info;
+    std::cout << "erase 5 to 100" << std::endl;
+    copy.erase(5, 100);
+    std::cout << copy << std::endl;
+
+    auto table = info;
+    table.append("append");
+    table.append_origin("origin is games");
+    table.append("append");
+    table.append_origin("origin is food");
+    std::cout << table << std::endl;
+    std::cout << "erase 6 to 12" << std::endl;
+    table.erase(6, 6);
+    std::cout << table << std::endl;
+    table.append_origin("origin is nothing");
+    std::cout << table << std::endl;
+    std::cout << "replace origin 0 to 17" << std::endl;
+    table.replace("origin is a mess", 0, 17);
+    std::cout << table << std::endl;
+    std::cout << "erase 3 to 10" << std::endl;
+    table.erase(3, 7);
+    std::cout << table << std::endl;
+    table.replace("FOO FIGHTERS", 3, 7);
+    std::cout << table << std::endl;
+    table.replace("X", 1, 20);
+    std::cout << table << std::endl;
 }

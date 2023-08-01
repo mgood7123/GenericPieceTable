@@ -855,3 +855,31 @@ now that we have `split_insert` and `split_erase` done, the rest is straight for
     }
 ```
 `replace` with range checks
+
+# User Data
+
+just having this is not enough to implement common actions that one might use a piece table for
+
+most people typically `integrate` additional functionality into the piece table such as `keeping additional information inside each descriptor`, however this is typically complex to do
+
+and we cannot do this in a generic implementation since we must be generic
+
+our solution to this is both simple and a bit complex - `User Data`
+
+to implement this, we need to modify our generic piece table to support this
+
+please view the git diff for this as the changes are too complex to explain
+
+all we need to know is we implement `CharListPieceTableWithCharacterInformation` and `StringPieceTableWithCharacterInformation` as examples of this `User Data` usage
+
+both `CharListPieceTable` and `StringPieceTable` add the following variables
+
+`finsert` is called when user data is to be inserted
+
+`fsplit` is called when user data is to be split
+
+`ferase` is called when user data is to be erased
+
+we expect certain behaviour to be exibited here, look at either `CharListPieceTableWithCharacterInformation` or `StringPieceTableWithCharacterInformation` for details
+
+i have not tested this extensively but it works for most cases

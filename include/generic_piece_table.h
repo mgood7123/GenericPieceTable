@@ -7,24 +7,126 @@
 #include <cstring>
 #include <list>
 #include <forward_list>
+#include <algorithm>
 
 #ifndef MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE
 #define MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE std::function
 #endif
 
-#define GENERIC_PIECE_TABLE__PRINT_BOOL(x) { if (debug) std::cout << #x << ": " << ((x) ? "true" : "false") << std::endl; }
-#define GENERIC_PIECE_TABLE__PRINT_STRING(x) { if (debug) std::cout << #x << ": " << std::to_string((x)) << std::endl; }
+#define GENERIC_PIECE_TABLE__PRINTF(x) { std::cout << #x << ": " << (x) << std::endl; }
+#define GENERIC_PIECE_TABLE__PRINT_BOOLF(x) { std::cout << #x << ": " << ((x) ? "true" : "false") << std::endl; }
+#define GENERIC_PIECE_TABLE__PRINT_STRINGF(x) { std::cout << #x << ": " << std::to_string((x)) << std::endl; }
+#define GENERIC_PIECE_TABLE__PRINT_POINTERF(x) { auto * p = (x); if (p == nullptr) { std::cout << #x << ": nullptr" << std::endl; } else { std::cout << #x << ": " << p << std::endl; } }
+
+#define GENERIC_PIECE_TABLE__PRINT(x) { if (debug) { std::cout << #x << ": " << (x) << std::endl; } }
+#define GENERIC_PIECE_TABLE__PRINT_BOOL(x) { if (debug) { std::cout << #x << ": " << ((x) ? "true" : "false") << std::endl; } }
+#define GENERIC_PIECE_TABLE__PRINT_STRING(x) { if (debug) { std::cout << #x << ": " << std::to_string((x)) << std::endl; } }
+#define GENERIC_PIECE_TABLE__PRINT_POINTER(x) { auto * p = (x); if (debug) { if (p == nullptr) { std::cout << #x << ": nullptr" << std::endl; } else { std::cout << #x << ": " << p << std::endl; } } }
+
+#define GENERIC_PIECE_TABLE__EMPTY_DESCRIPTOR {0, 0, {}}
 
 namespace MiniDoc {
 
+    struct GenericPieceTableUserData {
+
+        using COPY_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void*(const void*)>;
+        using DELETE_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void* &)>;
+        
+        std::optional<void *> user_data = std::nullopt;
+
+        std::optional<COPY_T> copy = std::nullopt;
+
+        std::optional<DELETE_T> deleter = std::nullopt;
+
+        GenericPieceTableUserData() {}
+
+        GenericPieceTableUserData(void* data) : user_data(data) {}
+
+        GenericPieceTableUserData(void* data, const COPY_T & copy, const DELETE_T & deleter)
+        : user_data(data), copy(copy), deleter(deleter) {}
+
+        void copy_user_data(const std::optional<void *> & src, std::optional<void *> & dst) {
+            dst = copy.value()(src.value());
+            // std::cout << "copied user data: " << src.value() << " -> " << dst.value() << std::endl;
+        }
+
+        void move_user_data(std::optional<void *> & src, std::optional<void *> & dst) {
+            dst = src.value();
+            src = std::nullopt;
+            // std::cout << "moved user data: 0 -> " << dst.value() << std::endl;
+        }
+
+        void copy_copy(const std::optional<COPY_T> & src, std::optional<COPY_T> & dst) {
+            dst = src.value();
+        }
+
+        void move_copy(std::optional<COPY_T> & src, std::optional<COPY_T> & dst) {
+            dst = src.value();
+            src = std::nullopt;
+        }
+
+        void copy_deleter(const std::optional<DELETE_T> & src, std::optional<DELETE_T> & dst) {
+            dst = src.value();
+        }
+
+        void move_deleter(std::optional<DELETE_T> & src, std::optional<DELETE_T> & dst) {
+            dst = src.value();
+            src = std::nullopt;
+        }
+
+        void call_deleter() {
+            deleter.value()(user_data.value());
+            user_data = std::nullopt;
+        }
+
+        GenericPieceTableUserData(const GenericPieceTableUserData & other) {
+            if (&other != this) {
+                if (other.copy.has_value()) copy_copy(other.copy, copy);
+                if (other.deleter.has_value()) copy_deleter(other.deleter, deleter);
+                if (other.user_data.has_value() && copy.has_value()) copy_user_data(other.user_data, user_data);
+            }
+        }
+        GenericPieceTableUserData & operator=(const GenericPieceTableUserData & other) {
+            if (&other != this) {
+                if (user_data.has_value() && deleter.has_value()) call_deleter();
+                if (other.copy.has_value()) copy_copy(other.copy, copy);
+                if (other.deleter.has_value()) copy_deleter(other.deleter, deleter);
+                if (other.user_data.has_value() && copy.has_value()) copy_user_data(other.user_data, user_data);
+            }
+            return *this;
+        }
+        GenericPieceTableUserData(GenericPieceTableUserData && other) {
+            if (&other != this) {
+                if (other.copy.has_value()) move_copy(other.copy, copy);
+                if (other.deleter.has_value()) move_deleter(other.deleter, deleter);
+                if (other.user_data.has_value()) move_user_data(other.user_data, user_data);
+            }
+        }
+        GenericPieceTableUserData & operator=(GenericPieceTableUserData && other) {
+            if (&other != this) {
+                if (user_data.has_value() && deleter.has_value()) call_deleter();
+                if (other.copy.has_value()) move_copy(other.copy, copy);
+                if (other.deleter.has_value()) move_deleter(other.deleter, deleter);
+                if (other.user_data.has_value()) move_user_data(other.user_data, user_data);
+            }
+            return *this;
+        }
+        virtual ~GenericPieceTableUserData() {
+            if (user_data.has_value() && deleter.has_value()) call_deleter();
+        }
+    };
+
     struct GenericPieceTableDescriptor {
-        std::size_t start;
-        std::size_t length;
+        std::size_t start = 0;
+        std::size_t length = 0;
+        GenericPieceTableUserData user_data;
+        GenericPieceTableDescriptor() = default;
+        GenericPieceTableDescriptor(std::size_t start, std::size_t length, const GenericPieceTableUserData & user_data) : start(start), length(length), user_data(user_data) {}
     };
 
     struct GenericPieceTableDescriptorOrder {
-        bool origin;
-        GenericPieceTableDescriptor * ptr;
+        bool origin = false;
+        GenericPieceTableDescriptor * ptr = nullptr;
     };
 
     template <typename CHAR_CONTAINER_T, typename BUFFER_CONTAINER_T>
@@ -34,6 +136,15 @@ namespace MiniDoc {
         MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<std::size_t(const BUFFER_CONTAINER_T & container)> container_length;
         MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<std::size_t(CHAR_CONTAINER_T & content)> content_length;
         MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<const char(const BUFFER_CONTAINER_T & container, std::size_t index)> container_index_to_char;
+        // user data insert
+        MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void * instance, GenericPieceTableUserData & user_data, const std::size_t & start, const CHAR_CONTAINER_T & content, const std::size_t & content_length)> act_on_user_data_insert;
+        // user data split
+        MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void * instance, 
+            GenericPieceTableUserData & user_data_left, const std::size_t & start_left, const std::size_t & length_left,
+            GenericPieceTableUserData & user_data_right
+        )> act_on_user_data_split;
+        // user data erase
+        MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void * instance, GenericPieceTableUserData & user_data, const std::size_t & start, const std::size_t & length, const bool & is_start)> act_on_user_data_erase;
     };
 
     template <typename DESCRIPTOR_CONTAINER_T>
@@ -58,6 +169,13 @@ namespace MiniDoc {
     struct GenericPieceTable {
 
         using THIS = GenericPieceTable<DESCRIPTOR_CONTAINER_T, DESCRIPTOR_ORDER_CONTAINER_T, ORIGIN_CHAR_CONTAINER_T, APPEND_CHAR_CONTAINER_T, ORIGIN_BUFFER_CONTAINER_T, APPEND_BUFFER_CONTAINER_T>;
+
+        using USER_DATA_USER_DATA_T = GenericPieceTableUserData &;
+        using USER_DATA_START_T = const std::size_t &;
+        using USER_DATA_ORIGIN_CONTENT_T = const ORIGIN_CHAR_CONTAINER_T &;
+        using USER_DATA_APPEND_CONTENT_T = const APPEND_CHAR_CONTAINER_T &;
+        using USER_DATA_LENGTH_T = const std::size_t &;
+        using USER_DATA_FLAGS_T = const bool &;
 
         template <typename BUFFER, typename CHAR>
         struct Info {
@@ -165,6 +283,18 @@ namespace MiniDoc {
 
         virtual ~GenericPieceTable() {}
 
+        std::size_t descriptor_count() const {
+            return descriptor_order_functions.length(piece_order);
+        }
+
+        const GenericPieceTableDescriptor & descriptor_at(std::size_t index) {
+            auto s = descriptor_order_functions.length(piece_order);
+            if (s == 0) {
+                throw std::runtime_error("index out of range");
+            }
+            return descriptor_order_functions.const_index(piece_order, index < s-1 ? index : s-1);
+        }
+
         const char operator[](std::size_t index) const {
             auto l = length();
             if (l == 0) {
@@ -266,7 +396,7 @@ namespace MiniDoc {
             if (clamped_position_start == 0) {
                 auto & piece = info.pieces;
                 auto len = descriptor_functions.length(piece);
-                descriptor_functions.append(piece, {0, 0});
+                descriptor_functions.append(piece, GENERIC_PIECE_TABLE__EMPTY_DESCRIPTOR);
                 auto & insert_piece = descriptor_functions.index(piece, len);
                 descriptor_order_functions.insert(piece_order, {is_origin, &insert_piece}, 0);
                 piece_order_size++;
@@ -288,7 +418,7 @@ namespace MiniDoc {
             if (is_end) {
                 auto & piece = info.pieces;
                 auto len = descriptor_functions.length(piece);
-                descriptor_functions.append(piece, {0, 0});
+                descriptor_functions.append(piece, GENERIC_PIECE_TABLE__EMPTY_DESCRIPTOR);
                 auto & insert_piece = descriptor_functions.index(piece, len);
                 descriptor_order_functions.insert(piece_order, {is_origin, &insert_piece}, piece_order_size);
                 piece_order_size++;
@@ -300,7 +430,7 @@ namespace MiniDoc {
             if (target_start.third == clamped_position_start) {
                 auto & piece = info.pieces;
                 auto len = descriptor_functions.length(piece);
-                descriptor_functions.append(piece, {0, 0});
+                descriptor_functions.append(piece, GENERIC_PIECE_TABLE__EMPTY_DESCRIPTOR);
                 auto & insert_piece = descriptor_functions.index(piece, len);
                 descriptor_order_functions.insert(piece_order, {is_origin, &insert_piece}, target_start.second);
                 piece_order_size++;
@@ -315,7 +445,7 @@ namespace MiniDoc {
 
                 auto & piece = info.pieces;
                 auto len = descriptor_functions.length(piece);
-                descriptor_functions.append(piece, {0, 0});
+                descriptor_functions.append(piece, GENERIC_PIECE_TABLE__EMPTY_DESCRIPTOR);
                 auto & insert_piece = descriptor_functions.index(piece, len);
                 descriptor_order_functions.insert(piece_order, {is_origin, &insert_piece}, target_start.second+1);
                 piece_order_size++;
@@ -326,8 +456,11 @@ namespace MiniDoc {
                 GENERIC_PIECE_TABLE__PRINT_STRING(old_length);
                 GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->start - ((target_start.first->ptr->start + diff) - old_length));
                 GENERIC_PIECE_TABLE__PRINT_STRING(old_length - diff);
-                descriptor_functions.append(piece2, {target_start.first->ptr->start + diff, old_length - diff});
+                descriptor_functions.append(piece2, {target_start.first->ptr->start + diff, old_length - diff, nullptr});
                 auto & insert_piece2 = descriptor_functions.index(piece2, len2);
+                auto & functions = target_start.first->origin ? origin_info.functions : append_info.functions;
+                if (debug) std::cout << "USER DATA SPLIT" << std::endl;
+                functions.act_on_user_data_split(this, target_start.first->ptr->user_data, target_start.first->ptr->start, target_start.first->ptr->length, insert_piece2.user_data);
                 descriptor_order_functions.insert(piece_order, {target_start.first->origin, &insert_piece2}, target_start.second+2);
                 piece_order_size++;
                 return insert_piece;
@@ -403,57 +536,85 @@ namespace MiniDoc {
             }
 
             auto target_start = lookup(clamped_position_start);
-            
-            GENERIC_PIECE_TABLE__PRINT_STRING(target_start.third);
-            auto diff = clamped_position_start - target_start.third;
-            GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->start);
-            GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->length);
-            GENERIC_PIECE_TABLE__PRINT_STRING(diff);
-            auto old_length = target_start.first->ptr->length;
-            target_start.first->ptr->length = diff;
 
-            GENERIC_PIECE_TABLE__PRINT_BOOL(target_start.second == target_end.second);
+            // we must do a conditional statement early otherwise  we may zero length only to then immediately extend it
 
-            if (target_start.second == target_end.second) {
-                GENERIC_PIECE_TABLE__PRINT_BOOL(target_start.third == clamped_position_start);
-                if (target_start.third == clamped_position_start) {
-                    auto new_len = old_length - ((target_end.third + old_length) - clamped_position_end);
-                    *target_start.first->ptr = {target_start.first->ptr->start + new_len, old_length - new_len};
-                } else {
+            auto & functions = target_start.first->origin ? origin_info.functions : append_info.functions;
+
+            GENERIC_PIECE_TABLE__PRINT_BOOL(target_start.second == target_end.second && target_start.third == clamped_position_start);
+            if (target_start.second == target_end.second && target_start.third == clamped_position_start) {
+                auto new_len = target_start.first->ptr->length - ((target_end.third + target_start.first->ptr->length) - clamped_position_end);
+                target_start.first->ptr->start = target_start.first->ptr->start + new_len;
+                target_start.first->ptr->length = target_start.first->ptr->length - new_len;
+                if (debug) std::cout << "USER DATA ERASE" << std::endl;
+                functions.act_on_user_data_erase(this, target_start.first->ptr->user_data, target_start.first->ptr->start, target_start.first->ptr->length, target_start.first->ptr->length != 0);
+            } else {
+
+                GENERIC_PIECE_TABLE__PRINT_STRING(target_start.third);
+                auto diff = clamped_position_start - target_start.third;
+                GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->start);
+                GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->length);
+                GENERIC_PIECE_TABLE__PRINT_STRING(diff);
+                auto old_start = target_start.first->ptr->start;
+                auto old_length = target_start.first->ptr->length;
+                target_start.first->ptr->length = diff;
+
+                if (debug) std::cout << "USER DATA SPLIT" << std::endl;
+                GenericPieceTableUserData data;
+                functions.act_on_user_data_split(this, target_start.first->ptr->user_data, target_start.first->ptr->start, target_start.first->ptr->length, data);
+
+                GENERIC_PIECE_TABLE__PRINT_BOOL(target_start.second == target_end.second);
+                if (target_start.second == target_end.second) {
                     auto & piece = target_start.first->origin ? origin_info.pieces : append_info.pieces;
-                    auto len1 = descriptor_functions.length(piece);
+                    auto len = descriptor_functions.length(piece);
                     GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->start);
                     GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->length);
                     auto new_len = old_length - ((target_end.third + old_length) - clamped_position_end);
-                    descriptor_functions.append(piece, {target_start.first->ptr->start + new_len, old_length - new_len});
-                    auto & insert_piece1 = descriptor_functions.index(piece, len1);
-                    GENERIC_PIECE_TABLE__PRINT_STRING(insert_piece1.start);
-                    GENERIC_PIECE_TABLE__PRINT_STRING(insert_piece1.length);
-                    descriptor_order_functions.insert(piece_order, {target_start.first->origin, &insert_piece1}, target_start.second+1);
+                    GENERIC_PIECE_TABLE__PRINT_STRING(new_len);
+                    GENERIC_PIECE_TABLE__PRINT_STRING(target_start.first->ptr->start + new_len);
+                    GENERIC_PIECE_TABLE__PRINT_STRING(old_length - new_len);
+                    descriptor_functions.append(piece, {target_start.first->ptr->start + new_len, old_length - new_len, nullptr});
+                    auto & insert_piece = descriptor_functions.index(piece, len);
+                    GENERIC_PIECE_TABLE__PRINT_STRING(insert_piece.start);
+                    GENERIC_PIECE_TABLE__PRINT_STRING(insert_piece.length);
+                    auto split_start_ = target_start.first->ptr->start + target_start.first->ptr->length;
+                    auto split_length_ = insert_piece.start - split_start_;
+                    GENERIC_PIECE_TABLE__PRINT_STRING(split_start_);
+                    GENERIC_PIECE_TABLE__PRINT_STRING(split_length_);
+                    if (debug) std::cout << "USER DATA SPLIT" << std::endl;
+                    functions.act_on_user_data_split(this, data, split_start_, split_length_, insert_piece.user_data);
+                    descriptor_order_functions.insert(piece_order, {target_start.first->origin, &insert_piece}, target_start.second+1);
                     piece_order_size++;
-                }
-            } else {
-                GENERIC_PIECE_TABLE__PRINT_BOOL(!is_end);
-                if (!is_end) {
-                    GENERIC_PIECE_TABLE__PRINT_STRING(target_end.third);
-                    auto diff = clamped_position_end - target_end.third;
-                    GENERIC_PIECE_TABLE__PRINT_STRING(diff);
-                    target_end.first->ptr->start += diff;
-                    target_end.first->ptr->length -= diff;
-                }
+                } else {
+                    GENERIC_PIECE_TABLE__PRINT_BOOL(!is_end);
+                    if (!is_end) {
+                        GENERIC_PIECE_TABLE__PRINT_STRING(target_end.third);
+                        auto diff = clamped_position_end - target_end.third;
+                        GENERIC_PIECE_TABLE__PRINT_BOOL(diff != 0);
+                        if (diff != 0) {
+                            target_end.first->ptr->start += diff;
+                            target_end.first->ptr->length -= diff;
+                            GENERIC_PIECE_TABLE__PRINT_STRING(diff);
+                            if (debug) std::cout << "USER DATA ERASE" << std::endl;
+                            functions.act_on_user_data_erase(this, target_end.first->ptr->user_data, target_end.first->ptr->start, target_end.first->ptr->length, target_end.first->ptr->length != 0);
+                        }
+                    }
 
-                GENERIC_PIECE_TABLE__PRINT_BOOL(target_start.second+1 != target_end.second);
-                if (target_start.second+1 != target_end.second) {
-                    // clear all pieces between start and end
-                    for (auto i = target_start.second+1; i < target_end.second; i++) {
-                        auto & order = descriptor_order_functions.const_index(piece_order, i);
-                        auto & descriptor = *order.ptr;
-                        descriptor.length = 0;
+                    GENERIC_PIECE_TABLE__PRINT_BOOL(target_start.second+1 != target_end.second);
+                    if (target_start.second+1 != target_end.second) {
+                        // clear all pieces between start and end
+                        for (auto i = target_start.second+1; i < target_end.second; i++) {
+                            auto & order = descriptor_order_functions.const_index(piece_order, i);
+                            auto & descriptor = *order.ptr;
+                            if (descriptor.length == 0) continue;
+                            descriptor.length = 0;
+                            if (debug) std::cout << "USER DATA ERASE" << std::endl;
+                            GENERIC_PIECE_TABLE__PRINT_STRING(descriptor.length);
+                            functions.act_on_user_data_erase(this, descriptor.user_data, descriptor.start, descriptor.length, false);
+                        }
                     }
                 }
             }
-            #undef GENERIC_PIECE_TABLE__PRINT_BOOL
-            #undef GENERIC_PIECE_TABLE__PRINT_STRING
         }
 
         template <typename INFO, typename C>
@@ -471,6 +632,8 @@ namespace MiniDoc {
             auto & descriptor = split_insert(is_origin, info, position_);
             descriptor.start = info.container_length();
             descriptor.length = content_length;
+            if (debug) std::cout << "USER DATA INSERT" << std::endl;
+            info.functions.act_on_user_data_insert(this, descriptor.user_data, descriptor.start, content, descriptor.length);
             info.functions.append(info.buffer, content);
             if (debug || debug_operations) {
                 std::cout << std::endl << "inserted " << content << " at position " << std::to_string(position_) << ": this:     " << string() << std::endl;
@@ -594,6 +757,7 @@ namespace MiniDoc {
 
         private:
 
+
         template <typename INFO>
         std::ostream & descriptor_to_stream(std::ostream & os, const char * tag, INFO & info, const GenericPieceTableDescriptor & descriptor) const {
             os << tag << ": ";
@@ -608,18 +772,32 @@ namespace MiniDoc {
 
         public:
 
+        virtual std::ostream & user_data_to_stream(std::ostream & os, const char * tag, void * user_data) const {
+            return os;
+        }
+
         template <typename INFO>
         std::ostream & buffer_to_stream(std::ostream & os, const char * tag, INFO & info) const {
             auto s = descriptor_functions.length(info.pieces);
             os << "  " << tag << " descriptor size: " << std::to_string(s) << std::endl;
-            for (size_t i = 0; i < s; i++) {
-                auto & descriptor = descriptor_functions.const_index(info.pieces, i);
-                std::string x = "      ";
-                x += tag;
-                x += " ";
-                x += std::to_string(i);
-                descriptor_to_stream(os, x.c_str(), info, descriptor);
-                os << std::endl;
+            if (s != 0) {
+                for (size_t i = 0, m = s-1; i <= m; i++) {
+                    auto & descriptor = descriptor_functions.const_index(info.pieces, i);
+                    std::string x = "      ";
+                    x += tag;
+                    x += " ";
+                    x += std::to_string(i);
+                    descriptor_to_stream(os, x.c_str(), info, descriptor);
+                    if (descriptor.user_data.user_data.has_value()) {
+                        std::string t = "    ";
+                        for (std::size_t i = 0, m = x.length(); i < m; i++) {
+                            t += " ";
+                        }
+                        os << std::endl;
+                        user_data_to_stream(os, t.c_str(), descriptor.user_data.user_data.value());
+                    }
+                    if (i != m) os << std::endl;
+                }
             }
             return os;
         }
@@ -659,14 +837,16 @@ namespace MiniDoc {
         std::ostream & order_to_stream(std::ostream & os) const {
             auto s = descriptor_order_functions.length(piece_order);
             os << "  " << " order size: " << std::to_string(s) << std::endl;
-            for (size_t i = 0; i < s; i++) {
-                auto & order = descriptor_order_functions.const_index(piece_order, i);
-                std::string x = "      ";
-                x += (order.origin ? "origin" : "append");
-                x += " ";
-                x += std::to_string(i);
-                descriptor_to_stream(os, x.c_str(), order.origin ? origin_info : append_info, *order.ptr);
-                os << std::endl;
+            if (s != 0) {
+                for (size_t i = 0, m = s-1; i <= m; i++) {
+                    auto & order = descriptor_order_functions.const_index(piece_order, i);
+                    std::string x = "      ";
+                    x += (order.origin ? "origin" : "append");
+                    x += " ";
+                    x += std::to_string(i);
+                    descriptor_to_stream(os, x.c_str(), order.origin ? origin_info : append_info, *order.ptr);
+                    if (i != m) os << std::endl;
+                }
             }
             return os;
         }
@@ -684,14 +864,17 @@ namespace MiniDoc {
         }
         os << std::endl;
         os << "    append: ";
-        auto append_len = o.container_length();
+        auto append_len = a.container_length();
         for (std::size_t i = 0; i < append_len; i++) {
-            os << o.container_index_to_char(i);
+            os << a.container_index_to_char(i);
         }
         os << std::endl;
         obj.buffer_to_stream(os, "origin", o);
+        os << std::endl;
         obj.buffer_to_stream(os, "append", a);
+        os << std::endl;
         obj.order_to_stream(os);
+        os << std::endl;
         return os << "GenericPieceTable end";
     }
 
@@ -850,6 +1033,28 @@ namespace MiniDoc {
         std::list<GenericPieceTableDescriptorOrder>,
         const char*, const char*, std::list<char>, std::list<char>
     > {
+        using FINSERT_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void* instance, USER_DATA_USER_DATA_T user_data, USER_DATA_START_T start, USER_DATA_ORIGIN_CONTENT_T content, USER_DATA_LENGTH_T length)>;
+        using FSPLIT_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void* instance, USER_DATA_USER_DATA_T user_data, USER_DATA_START_T start, USER_DATA_LENGTH_T length, USER_DATA_USER_DATA_T user_data2)>;
+        using FERASE_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void* instance, USER_DATA_USER_DATA_T user_data, USER_DATA_START_T start, USER_DATA_LENGTH_T length, USER_DATA_FLAGS_T is_start)>;
+        
+        FINSERT_T finsert = [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) {};
+        FSPLIT_T fsplit = [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data2) {};
+        FERASE_T ferase = [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) {};
+
+        CharListPieceTable(const CharListPieceTable & other) : GenericPieceTable(other) {
+            finsert = other.finsert;
+            fsplit = other.fsplit;
+            ferase = other.ferase;
+        }
+
+        CharListPieceTable & operator=(const CharListPieceTable & other) {
+            GenericPieceTable::operator=(other);
+            finsert = other.finsert;
+            fsplit = other.fsplit;
+            ferase = other.ferase;
+            return *this;
+        }
+
         CharListPieceTable() : GenericPieceTable(
             { // descriptor
                 // reset
@@ -885,7 +1090,13 @@ namespace MiniDoc {
                 // content length
                 [](auto & content) { return content == nullptr ? 0 : strlen(content); },
                 // container index to char
-                [](auto & c, auto index) { return *std::next(c.begin(), index); }
+                [](auto & c, auto index) { return *std::next(c.begin(), index); },
+                // user data insert
+                [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) { static_cast<CharListPieceTable*>(this_)->finsert(this_, user_data, start, content, content_length); },
+                // user data split
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data_2) { static_cast<CharListPieceTable*>(this_)->fsplit(this_, user_data, start, length, user_data_2); },
+                // user data erase
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) { static_cast<CharListPieceTable*>(this_)->ferase(this_, user_data, start, length, is_start); }
             },
             { // append
                 // reset
@@ -897,7 +1108,13 @@ namespace MiniDoc {
                 // content length
                 [](auto & content) { return content == nullptr ? 0 : strlen(content); },
                 // container index to char
-                [](auto & c, auto index) { return *std::next(c.begin(), index); }
+                [](auto & c, auto index) { return *std::next(c.begin(), index); },
+                // user data insert
+                [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) { static_cast<CharListPieceTable*>(this_)->finsert(this_, user_data, start, content, content_length); },
+                // user data split
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data_2) { static_cast<CharListPieceTable*>(this_)->fsplit(this_, user_data, start, length, user_data_2); },
+                // user data erase
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) { static_cast<CharListPieceTable*>(this_)->ferase(this_, user_data, start, length, is_start); }
             }
         ) {}
     };
@@ -907,6 +1124,14 @@ namespace MiniDoc {
         std::list<GenericPieceTableDescriptorOrder>,
         const char*, const char*, std::string, std::string
     > {
+        using FINSERT_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void* instance, USER_DATA_USER_DATA_T user_data, USER_DATA_START_T start, USER_DATA_ORIGIN_CONTENT_T content, USER_DATA_LENGTH_T length)>;
+        using FSPLIT_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void* instance, USER_DATA_USER_DATA_T user_data, USER_DATA_START_T start, USER_DATA_LENGTH_T length, USER_DATA_USER_DATA_T user_data2)>;
+        using FERASE_T = MINIDOC_GENERIC_PIECE_TABLE_FUNCTION_TYPE<void(void* instance, USER_DATA_USER_DATA_T user_data, USER_DATA_START_T start, USER_DATA_LENGTH_T length, USER_DATA_FLAGS_T is_start)>;
+
+        FINSERT_T finsert = [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) {};
+        FSPLIT_T fsplit = [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data2) {};
+        FERASE_T ferase = [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) {};
+
         StringPieceTable() : GenericPieceTable(
             { // descriptor
                 // reset
@@ -942,7 +1167,13 @@ namespace MiniDoc {
                 // content length
                 [](auto & content) { return content == nullptr ? 0 : strlen(content); },
                 // container index to char
-                [](auto & c, auto index) -> const char { return c[index]; }
+                [](auto & c, auto index) -> const char { return c[index]; },
+                // user data insert
+                [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) { static_cast<StringPieceTable*>(this_)->finsert(this_, user_data, start, content, content_length); },
+                // user data split
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data_2) { static_cast<StringPieceTable*>(this_)->fsplit(this_, user_data, start, length, user_data_2); },
+                // user data erase
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) { static_cast<StringPieceTable*>(this_)->ferase(this_, user_data, start, length, is_start); }
             },
             { // append
                 // reset
@@ -954,13 +1185,307 @@ namespace MiniDoc {
                 // content length
                 [](auto & content) { return content == nullptr ? 0 : strlen(content); },
                 // content index to char
-                [](auto & c, auto index) -> const char { return c[index]; }
+                [](auto & c, auto index) -> const char { return c[index]; },
+                // user data insert
+                [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) { static_cast<StringPieceTable*>(this_)->finsert(this_, user_data, start, content, content_length); },
+                // user data split
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data_2) { static_cast<StringPieceTable*>(this_)->fsplit(this_, user_data, start, length, user_data_2); },
+                // user data erase
+                [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) { static_cast<StringPieceTable*>(this_)->ferase(this_, user_data, start, length, is_start); }
             }
         ) {}
+    };
+
+
+    class CharListPieceTableWithCharacterInformation : public CharListPieceTable {
+        std::string characters;
+
+        struct CharInfo {
+            char character;
+            std::size_t index;
+        };
+
+        public:
+
+        CharListPieceTableWithCharacterInformation(const CharListPieceTableWithCharacterInformation & other) : CharListPieceTable(other) {
+            characters = other.characters;
+        }
+
+        CharListPieceTableWithCharacterInformation & operator=(const CharListPieceTableWithCharacterInformation & other) {
+            CharListPieceTable::operator=(other);
+            characters = other.characters;
+            return *this;
+        }
+
+        CharListPieceTableWithCharacterInformation() : CharListPieceTableWithCharacterInformation("") {}
+
+        CharListPieceTableWithCharacterInformation(const std::string & characters) : characters(characters) {
+            finsert = [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) {
+                auto & debug = static_cast<CharListPieceTableWithCharacterInformation*>(this_)->debug;
+                std::cout << "finsert" << std::endl;
+                std::vector<CharInfo> * info = nullptr;
+                for(std::size_t i = 0; i < content_length; i++) {
+                    for (auto & character : static_cast<CharListPieceTableWithCharacterInformation*>(this_)->characters) {
+                        if (character == content[i]) {
+                            if (info == nullptr) {
+                                info = new std::vector<CharInfo>();
+                            }
+                            CharInfo char_info = {character, start + i};
+                            info->push_back(char_info);
+                        }
+                    }
+                }
+                if (info != nullptr) {
+                    user_data = GenericPieceTableUserData(
+                        info,
+                        [](auto src) {
+                            std::vector<CharInfo>* vec = new std::vector<CharInfo>();
+                            *vec = *static_cast<const std::vector<CharInfo>*>(src);
+                            return vec;
+                        },
+                        [](auto p) {
+                            delete static_cast<std::vector<CharInfo>*>(p);
+                        }
+                    );
+                } else {
+                    user_data = {};
+                }
+            };
+
+            // https://godbolt.org/z/7sffYEnse
+
+            // fsplit(v_lhs, 5, 1, v_rhs); // split vector v_lhs into half, v_lhs{5, 2, 4, 7, 2} > v_lhs{5, 2, 4} v_rhs{7, 2}
+            // v_rhs is always empty
+            fsplit = [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data_2) {
+                auto & debug = static_cast<CharListPieceTableWithCharacterInformation*>(this_)->debug;
+                std::cout << "fsplit" << std::endl;
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(start);
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(length);
+                auto & vec = *static_cast<std::vector<CharInfo>*>(user_data.user_data.value());
+                std::cout << "we can collect directly into user_data_2" << std::endl;
+                auto vec2 = new std::vector<CharInfo>();
+                user_data_2 = GenericPieceTableUserData(
+                    vec2,
+                    [](auto src) {
+                        std::vector<CharInfo>* vec = new std::vector<CharInfo>();
+                        *vec = *static_cast<const std::vector<CharInfo>*>(src);
+                        return vec;
+                    },
+                    [](auto p) {
+                        delete static_cast<std::vector<CharInfo>*>(p);
+                    }
+                );
+
+                assert(vec.size() != 0);
+                assert(vec[0].index >= start);
+                auto begin = vec.begin();
+                auto end = vec.end();
+                auto max = start + length;
+                auto index_min = std::find_if(begin, end, [&start, &max](auto p){return p.index >= start && p.index <= max;});
+                auto index_max = std::find_if(begin, end, [&max](auto p){return p.index >= max;});
+                vec2->insert(vec2->end(), index_max, end);
+                vec.erase(begin, index_min);
+                vec.erase(index_max, vec.end());
+            };
+
+            // ferase(v, 5, 3, {true}); // truncate to a min index of 5 and a max index of 5+3 (7), v{5, 6, 7, 8, 9} > v{5, 6, 7}
+            // ferase(v, 10, 0, {false}); // truncate to max index of 10, including itself, v{4, 6, 10, 2} > v{4, 6}
+            ferase = [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) {
+                std::cout << "ferase" << std::endl;
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(start);
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(length);
+                GENERIC_PIECE_TABLE__PRINT_BOOLF(is_start);
+                assert(user_data.user_data.has_value());
+                auto & vec = *static_cast<std::vector<CharInfo>*>(user_data.user_data.value());
+                assert(vec.size() != 0);
+                auto end = vec.end();
+                if (!is_start) {
+                    assert(length == 0); // do we always have zero length?
+                    // benchmarks show find_if is almost 400 times faster than remove_if for chopping off the tail of a vector
+                    // https://quick-bench.com/q/fpStaAWC9Pv3kJRLwwB7DGNDIXw
+                    //
+                    auto it = std::find_if(
+                        vec.begin(),
+                        end,
+                        [&start](auto p){return p.index >= start;}
+                    );
+                    vec.erase(it, end);
+                } else {
+                    std::cout << "ferase MIDDLE" << std::endl;
+                    auto max = start + length;
+                    // benchmarks show remove_if and find_if make little difference when slicing the vector, tho find_if is faster the difference is negleble
+                    vec.erase(std::remove_if(
+                        vec.begin(),
+                        end,
+                        [&start, &max](auto p){return p.index < start || p.index > max;}
+                    ), end);
+                }
+            };
+        }
+
+        std::ostream & user_data_to_stream(std::ostream & os, const char * tag, void * user_data) const override {
+            std::vector<CharInfo> & vec = *static_cast<std::vector<CharInfo>*>(user_data);
+            auto m = vec.size();
+            if (m == 0) return os;
+            m--;
+            for (std::size_t i = 0; i <= m; i++) {
+                auto & v = vec[i];
+                os << tag << "char: '" << v.character << "', index: " << std::to_string(v.index);
+                if (i != m) os << std::endl;
+            }
+            return os;
+        }
+    };
+
+    class StringPieceTableWithCharacterInformation : public StringPieceTable {
+        std::string characters;
+
+        struct CharInfo {
+            char character;
+            std::size_t index;
+        };
+
+        public:
+
+        StringPieceTableWithCharacterInformation(const StringPieceTableWithCharacterInformation & other) : StringPieceTable(other) {
+            characters = other.characters;
+        }
+
+        StringPieceTableWithCharacterInformation & operator=(const StringPieceTableWithCharacterInformation & other) {
+            StringPieceTable::operator=(other);
+            characters = other.characters;
+            return *this;
+        }
+
+        StringPieceTableWithCharacterInformation() : StringPieceTableWithCharacterInformation("") {}
+
+        StringPieceTableWithCharacterInformation(const std::string & characters) : characters(characters) {
+            finsert = [](auto * this_, auto & user_data, auto & start, auto & content, auto & content_length) {
+                auto & debug = static_cast<StringPieceTableWithCharacterInformation*>(this_)->debug;
+                std::cout << "finsert" << std::endl;
+                std::vector<CharInfo> * info = nullptr;
+                for(std::size_t i = 0; i < content_length; i++) {
+                    for (auto & character : static_cast<StringPieceTableWithCharacterInformation*>(this_)->characters) {
+                        if (character == content[i]) {
+                            if (info == nullptr) {
+                                info = new std::vector<CharInfo>();
+                            }
+                            CharInfo char_info = {character, start + i};
+                            info->push_back(char_info);
+                        }
+                    }
+                }
+                if (info != nullptr) {
+                    user_data = GenericPieceTableUserData(
+                        info,
+                        [](auto src) {
+                            std::vector<CharInfo>* vec = new std::vector<CharInfo>();
+                            *vec = *static_cast<const std::vector<CharInfo>*>(src);
+                            return vec;
+                        },
+                        [](auto p) {
+                            delete static_cast<std::vector<CharInfo>*>(p);
+                        }
+                    );
+                } else {
+                    user_data = {};
+                }
+            };
+
+            // https://godbolt.org/z/7sffYEnse
+
+            // fsplit(v_lhs, 5, 1, v_rhs); // split vector v_lhs into half, v_lhs{5, 2, 4, 7, 2} > v_lhs{5, 2, 4} v_rhs{7, 2}
+            // v_rhs is always empty
+            fsplit = [](auto * this_, auto & user_data, auto & start, auto & length, auto & user_data_2) {
+                auto & debug = static_cast<StringPieceTableWithCharacterInformation*>(this_)->debug;
+                std::cout << "fsplit" << std::endl;
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(start);
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(length);
+                auto & vec = *static_cast<std::vector<CharInfo>*>(user_data.user_data.value());
+                std::cout << "we can collect directly into user_data_2" << std::endl;
+                auto vec2 = new std::vector<CharInfo>();
+                user_data_2 = GenericPieceTableUserData(
+                    vec2,
+                    [](auto src) {
+                        std::vector<CharInfo>* vec = new std::vector<CharInfo>();
+                        *vec = *static_cast<const std::vector<CharInfo>*>(src);
+                        return vec;
+                    },
+                    [](auto p) {
+                        delete static_cast<std::vector<CharInfo>*>(p);
+                    }
+                );
+
+                assert(vec.size() != 0);
+                assert(vec[0].index >= start);
+                auto begin = vec.begin();
+                auto end = vec.end();
+                auto max = start + length;
+                auto index_min = std::find_if(begin, end, [&start, &max](auto p){return p.index >= start && p.index <= max;});
+                auto index_max = std::find_if(begin, end, [&max](auto p){return p.index >= max;});
+                vec2->insert(vec2->end(), index_max, end);
+                vec.erase(begin, index_min);
+                vec.erase(index_max, vec.end());
+            };
+
+            // ferase(v, 5, 3, {true}); // truncate to a min index of 5 and a max index of 5+3 (7), v{5, 6, 7, 8, 9} > v{5, 6, 7}
+            // ferase(v, 10, 0, {false}); // truncate to max index of 10, including itself, v{4, 6, 10, 2} > v{4, 6}
+            ferase = [](auto * this_, auto & user_data, auto & start, auto & length, auto & is_start) {
+                std::cout << "ferase" << std::endl;
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(start);
+                GENERIC_PIECE_TABLE__PRINT_STRINGF(length);
+                GENERIC_PIECE_TABLE__PRINT_BOOLF(is_start);
+                assert(user_data.user_data.has_value());
+                auto & vec = *static_cast<std::vector<CharInfo>*>(user_data.user_data.value());
+                assert(vec.size() != 0);
+                auto end = vec.end();
+                if (!is_start) {
+                    std::cout << "ferase END" << std::endl;
+                    assert(length == 0); // do we always have zero length?
+                    // benchmarks show find_if is almost 400 times faster than remove_if for chopping off the tail of a vector
+                    // https://quick-bench.com/q/fpStaAWC9Pv3kJRLwwB7DGNDIXw
+                    //
+                    auto it = std::find_if(
+                        vec.begin(),
+                        end,
+                        [&start](auto p){return p.index >= start;}
+                    );
+                    vec.erase(it, end);
+                } else {
+                    std::cout << "ferase MIDDLE" << std::endl;
+                    auto max = start + length;
+                    // benchmarks show remove_if and find_if make little difference when slicing the vector, tho find_if is faster the difference is negleble
+                    vec.erase(std::remove_if(
+                        vec.begin(),
+                        end,
+                        [&start, &max](auto p){return p.index < start || p.index > max;}
+                    ), end);
+                }
+            };
+        }
+
+        std::ostream & user_data_to_stream(std::ostream & os, const char * tag, void * user_data) const override {
+            std::vector<CharInfo> & vec = *static_cast<std::vector<CharInfo>*>(user_data);
+            auto m = vec.size();
+            if (m == 0) return os;
+            m--;
+            for (std::size_t i = 0; i <= m; i++) {
+                auto & v = vec[i];
+                os << tag << "char: '" << v.character << "', index: " << std::to_string(v.index);
+                if (i != m) os << std::endl;
+            }
+            return os;
+        }
     };
 }
 
 #undef GENERIC_PIECE_TABLE__PRINT_BOOL
 #undef GENERIC_PIECE_TABLE__PRINT_STRING
+#undef GENERIC_PIECE_TABLE__PRINT_POINTER
+#undef GENERIC_PIECE_TABLE__PRINT
+#undef GENERIC_PIECE_TABLE__PRINT_BOOLF
+#undef GENERIC_PIECE_TABLE__PRINT_STRINGF
+#undef GENERIC_PIECE_TABLE__PRINT_POINTERF
+#undef GENERIC_PIECE_TABLE__PRINTF
 
 #endif
