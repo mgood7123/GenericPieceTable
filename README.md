@@ -157,6 +157,10 @@ virtual ~GenericPieceTable()
 ```cpp
 const Info<ORIGIN_BUFFER_CONTAINER_T, ORIGIN_CHAR_CONTAINER_T> & get_origin_info() const
 const Info<APPEND_BUFFER_CONTAINER_T, ORIGIN_CHAR_CONTAINER_T> & get_append_info() const
+std::size_t descriptor_count() const
+const GenericPieceTableDescriptorOrder & descriptor_at(std::size_t index) const
+std::string range_string(std::size_t start, std::size_t end) const
+void range_string(std::size_t start, std::size_t end, std::string & out) const
 THIS & append_origin(ORIGIN_CHAR_CONTAINER_T content)
 THIS & append(APPEND_CHAR_CONTAINER_T content)
 THIS & insert_origin(ORIGIN_CHAR_CONTAINER_T content, std::size_t position)
@@ -173,6 +177,7 @@ std::size_t length() const
 std::size_t size() const
 std::ostream & buffer_to_stream(std::ostream & os, const char * tag, INFO & info) const
 std::ostream & order_to_stream(std::ostream & os) const
+std::vector<std::string> split(const char & splitter) const
 ```
 `GenericPieceTable` also provides `operator <<` support for printing to streams, however `.string()` is recommended
 ```cpp
@@ -185,9 +190,13 @@ template <typename T1, typename T2, typename T3, typename T4, typename T5, typen
 std::ostream & operator<<(std::ostream & os, const GenericPieceTable<T1, T2, T3, T4, T5, T6> & obj)
 ```
 
-both `.string()` and `operator<<` are expensive operations since `all descriptor buffers must be iterated` in order to provide the required data
+both `.string()`, `.split(splitter)`, and `operator<<` are expensive operations since `all descriptor buffers must be iterated` in order to provide the required data
 
-`length()` and `size()` is a cheap operation since we only need to add up the length of each descriptor
+`descriptor_count()`, `length()`, and `size()` are cheap operations since we only need to add up the length of each descriptor
+
+`range_string` can be expensive if a large range is given
+
+`length()` and `size()` are equivilant to eachother
 
 # implementation usage
 
@@ -886,6 +895,64 @@ we expect certain behaviour to be exibited here, look at either `CharListPieceTa
 
 i have not tested this extensively but it works for most cases
 
-the `User Data` can be iterated via `descriptor_at` and `descriptor_cout`, this enables operations such as, for example, `line_at`
+the `User Data` can be iterated via `descriptor_at` and `descriptor_count`
 
-an implementation of a `StringPieceTable` with `newline information` will available soon
+below is an alternative implementation of `split` and an additional implementation of `split_count` to demonstrate such `User Data` iteration
+
+```cpp
+auto lines = pt.split('\n'); // 0 if empty, 1 is no \n is found, 1 + ( occurences of \n ) if \n is found
+```
+
+```cpp
+std::size_t split_count(const char & character) const {
+    std::size_t splits = 0;
+    auto m = descriptor_count();
+    for (std::size_t i = 0; i < m; i++) {
+        auto d = descriptor_at(i);
+        if (d.ptr->user_data.user_data.has_value()) {
+            auto & vec = *static_cast<const std::vector<CharInfo>*>(d.ptr->user_data.user_data.value());
+            for (auto & info : vec) {
+                if (info.character == character) {
+                    splits++;
+                }
+            }
+        }
+    }
+    return splits;
+}
+
+std::vector<std::string> split(const char & splitter) const {
+    std::vector<std::string> vec;
+    std::string c;
+    auto s = descriptor_count();
+    auto & origin_info = get_origin_info();
+    auto & append_info = get_append_info();
+    for (size_t i = 0; i < s; i++) {
+        auto & order = descriptor_at(i);
+        auto & descriptor = *order.ptr;
+        if (order.origin) {
+            for (std::size_t i_ = descriptor.start; i_ < (descriptor.start + descriptor.length); i_++) {
+                const char t = origin_info.container_index_to_char(i_);
+                if (t == splitter) {
+                    vec.push_back(c);
+                    c = {};
+                } else {
+                    c.push_back(t);
+                }
+            }
+        } else {
+            for (std::size_t i_ = descriptor.start; i_ < (descriptor.start + descriptor.length); i_++) {
+                const char t = append_info.container_index_to_char(i_);
+                if (t == splitter) {
+                    vec.push_back(c);
+                    c = {};
+                } else {
+                    c.push_back(t);
+                }
+            }
+        }
+    }
+    vec.push_back(c);
+    return vec;
+}
+```
