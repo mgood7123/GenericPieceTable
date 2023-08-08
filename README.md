@@ -159,6 +159,8 @@ const Info<ORIGIN_BUFFER_CONTAINER_T, ORIGIN_CHAR_CONTAINER_T> & get_origin_info
 const Info<APPEND_BUFFER_CONTAINER_T, ORIGIN_CHAR_CONTAINER_T> & get_append_info() const
 std::size_t descriptor_count() const
 const GenericPieceTableDescriptorOrder & descriptor_at(std::size_t index) const
+std::string range_string_len(std::size_t start, std::size_t length) const;
+void range_string_len(std::size_t start, std::size_t length, std::string & out) const;
 std::string range_string(std::size_t start, std::size_t end) const
 void range_string(std::size_t start, std::size_t end, std::string & out) const
 THIS & append_origin(ORIGIN_CHAR_CONTAINER_T content)
@@ -169,6 +171,7 @@ THIS & replace_origin(ORIGIN_CHAR_CONTAINER_T content, std::size_t position, std
 THIS & replace(APPEND_CHAR_CONTAINER_T content, std::size_t position, std::size_t length)
 THIS & erase_origin(std::size_t position, std::size_t length)
 THIS & erase(std::size_t position, std::size_t length)
+virtual void onReset()
 THIS & reset()
 THIS & clear_origin()
 THIS & clear()
@@ -177,6 +180,7 @@ std::size_t length() const
 std::size_t size() const
 std::ostream & buffer_to_stream(std::ostream & os, const char * tag, INFO & info) const
 std::ostream & order_to_stream(std::ostream & os) const
+virtual std::ostream & user_data_to_stream(std::ostream & os, const char * tag, void * user_data) const
 std::vector<std::string> split(const char & splitter) const
 ```
 `GenericPieceTable` also provides `operator <<` support for printing to streams, however `.string()` is recommended
@@ -190,13 +194,39 @@ template <typename T1, typename T2, typename T3, typename T4, typename T5, typen
 std::ostream & operator<<(std::ostream & os, const GenericPieceTable<T1, T2, T3, T4, T5, T6> & obj)
 ```
 
+`onReset` is provided for caching purposes for those that wish to cache results from the piece table
+
 both `.string()`, `.split(splitter)`, and `operator<<` are expensive operations since `all descriptor buffers must be iterated` in order to provide the required data
 
 `descriptor_count()`, `length()`, and `size()` are cheap operations since we only need to add up the length of each descriptor
 
-`range_string` can be expensive if a large range is given
+`range_string*` can be expensive if a large range is given
 
 `length()` and `size()` are equivilant to eachother
+
+# undo/redo
+
+a subset of information is provided for undo/redo systems
+
+```cpp
+        enum LAST_OP { LAST_OP_INSERT, LAST_OP_REPLACE, LAST_OP_ERASE };
+        enum LAST_BUFFER { LAST_BUFFER_ORIGIN, LAST_BUFFER_APPEND };
+
+        LAST_OP last_op;
+        LAST_BUFFER last_buffer;
+
+        std::size_t last_calculated_insert_position_start;
+        std::size_t last_calculated_replace_position_start;
+        std::size_t last_calculated_replace_length;
+        std::size_t last_calculated_erase_position_start;
+        std::size_t last_calculated_erase_length;
+```
+
+these get updated after `append/insert` `replace` and `erase` operations
+
+it is strongly recommented to `not mix origin and append buffer types`, that is, having a `vector<char>` append buffer and a `vector<std::string>` origin buffer, since `char` and `std::string` cannot safely be represented as a single operation undo/redo, additionally we do not want to require inter-convertible types, for example, `origin type T1 must be convertible to append type T2` since this implies `T1 -> char -> T2` conversion equivilance (`char -> T* conversion`) which we `strictly avoid for complexity reasons`
+
+for example, `T` may be convertable to `char` but `char` may be difficult to convert back to `T` such that `(T -> char) == (T -> char -> T -> char)`
 
 # implementation usage
 
