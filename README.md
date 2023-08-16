@@ -182,6 +182,7 @@ std::ostream & buffer_to_stream(std::ostream & os, const char * tag, INFO & info
 std::ostream & order_to_stream(std::ostream & os) const
 virtual std::ostream & user_data_to_stream(std::ostream & os, const char * tag, void * user_data) const
 std::vector<std::string> split(const char & splitter) const
+std::size_t split_count(const char & splitter) const
 ```
 `GenericPieceTable` also provides `operator <<` support for printing to streams, however `.string()` is recommended
 ```cpp
@@ -196,7 +197,22 @@ std::ostream & operator<<(std::ostream & os, const GenericPieceTable<T1, T2, T3,
 
 `onReset` is provided for caching purposes for those that wish to cache results from the piece table
 
-both `.string()`, `.split(splitter)`, and `operator<<` are expensive operations since `all descriptor buffers must be iterated` in order to provide the required data
+both `.string()`, `.split(splitter)`, `.split_count(splitter)`, and `operator<<` are expensive operations since `all descriptor buffers must be iterated` in order to provide the required data
+
+```cpp
+auto lines = pt.split('\n'); // lines.size() = 1 if empty or no \n is found, 1 + ( occurences of \n ) if \n is found
+auto line_count = pt.split_count('\n'); // 1 if empty or no \n is found, 1 + ( occurences of \n ) if \n is found
+```
+
+`split_count` does not accumulate strings and instead outputs the count as if `split(splitter).size()`, this can be useful if the content around the splitter should be removed, specifically if the length of such content could be large but not actually required, thus avoiding wasted memory by avoiding copying the large content
+
+```cpp
+p = "abc\ndef\nhig"
+split_count = p.split_count('\n')
+// split_count 3
+str = repeat_char( '\n', split_count - 1 )
+// str == "\n\n"
+```
 
 `descriptor_count()`, `length()`, and `size()` are cheap operations since we only need to add up the length of each descriptor
 
@@ -927,30 +943,14 @@ i have not tested this extensively but it works for most cases
 
 the `User Data` can be iterated via `descriptor_at` and `descriptor_count`
 
-below is an alternative implementation of `split` and an additional implementation of `split_count` to demonstrate such `User Data` iteration
+below is an alternative implementation of `split` and `split_count` to demonstrate such `User Data` iteration
 
 ```cpp
-auto lines = pt.split('\n'); // 0 if empty, 1 is no \n is found, 1 + ( occurences of \n ) if \n is found
+auto lines = pt.split('\n'); // lines.size() = 1 if empty or no \n is found, 1 + ( occurences of \n ) if \n is found
+auto line_count = pt.split_count('\n'); // 1 if empty or no \n is found, 1 + ( occurences of \n ) if \n is found
 ```
 
 ```cpp
-std::size_t split_count(const char & character) const {
-    std::size_t splits = 0;
-    auto m = descriptor_count();
-    for (std::size_t i = 0; i < m; i++) {
-        auto d = descriptor_at(i);
-        if (d.ptr->user_data.user_data.has_value()) {
-            auto & vec = *static_cast<const std::vector<CharInfo>*>(d.ptr->user_data.user_data.value());
-            for (auto & info : vec) {
-                if (info.character == character) {
-                    splits++;
-                }
-            }
-        }
-    }
-    return splits;
-}
-
 std::vector<std::string> split(const char & splitter) const {
     std::vector<std::string> vec;
     std::string c;
@@ -984,5 +984,33 @@ std::vector<std::string> split(const char & splitter) const {
     }
     vec.push_back(c);
     return vec;
+}
+
+std::size_t split(const char & splitter) const {
+    std::size_t count;
+    auto s = descriptor_count();
+    auto & origin_info = get_origin_info();
+    auto & append_info = get_append_info();
+    for (size_t i = 0; i < s; i++) {
+        auto & order = descriptor_at(i);
+        auto & descriptor = *order.ptr;
+        if (order.origin) {
+            for (std::size_t i_ = descriptor.start; i_ < (descriptor.start + descriptor.length); i_++) {
+                const char t = origin_info.container_index_to_char(i_);
+                if (t == splitter) {
+                    count++;
+                }
+            }
+        } else {
+            for (std::size_t i_ = descriptor.start; i_ < (descriptor.start + descriptor.length); i_++) {
+                const char t = append_info.container_index_to_char(i_);
+                if (t == splitter) {
+                    count++;
+                }
+            }
+        }
+    }
+    count++;
+    return count;
 }
 ```

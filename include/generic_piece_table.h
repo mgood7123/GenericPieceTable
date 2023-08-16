@@ -1050,19 +1050,12 @@ namespace MiniDoc {
             std::vector<std::string> vec;
             std::string c;
             auto s = descriptor_count();
-            GENERIC_PIECE_TABLE__PRINT_STRING(s);
             for (size_t i = 0; i < s; i++) {
-                GENERIC_PIECE_TABLE__PRINT_STRING(i);
                 auto & order = descriptor_at(i);
                 auto & descriptor = *order.ptr;
                 if (order.origin) {
                     for (std::size_t i_ = descriptor.start, m_ = (descriptor.start + descriptor.length); i_ < m_; i_++) {
-                        GENERIC_PIECE_TABLE__PRINT_STRING(i_);
-                        GENERIC_PIECE_TABLE__PRINT_STRING(m_);
                         const char t = origin_info.container_index_to_char(i_);
-                        GENERIC_PIECE_TABLE__PRINT(t);
-                        GENERIC_PIECE_TABLE__PRINT(splitter);
-                        GENERIC_PIECE_TABLE__PRINT_BOOL(t == splitter);
                         if (t == splitter) {
                             vec.push_back(c);
                             c = {};
@@ -1072,12 +1065,7 @@ namespace MiniDoc {
                     }
                 } else {
                     for (std::size_t i_ = descriptor.start, m_ = (descriptor.start + descriptor.length); i_ < m_; i_++) {
-                        GENERIC_PIECE_TABLE__PRINT_STRING(i_);
-                        GENERIC_PIECE_TABLE__PRINT_STRING(m_);
                         const char t = append_info.container_index_to_char(i_);
-                        GENERIC_PIECE_TABLE__PRINT(t);
-                        GENERIC_PIECE_TABLE__PRINT(splitter);
-                        GENERIC_PIECE_TABLE__PRINT_BOOL(t == splitter);
                         if (t == splitter) {
                             vec.push_back(c);
                             c = {};
@@ -1089,6 +1077,33 @@ namespace MiniDoc {
             }
             vec.push_back(c);
             return vec;
+        }
+        
+        std::size_t split_count(const char & splitter) const {
+            std::size_t count = 0;
+            auto s = descriptor_count();
+            for (size_t i = 0; i < s; i++) {
+                GENERIC_PIECE_TABLE__PRINT_STRING(i);
+                auto & order = descriptor_at(i);
+                auto & descriptor = *order.ptr;
+                if (order.origin) {
+                    for (std::size_t i_ = descriptor.start, m_ = (descriptor.start + descriptor.length); i_ < m_; i_++) {
+                        const char t = origin_info.container_index_to_char(i_);
+                        if (t == splitter) {
+                            count++;
+                        }
+                    }
+                } else {
+                    for (std::size_t i_ = descriptor.start, m_ = (descriptor.start + descriptor.length); i_ < m_; i_++) {
+                        const char t = append_info.container_index_to_char(i_);
+                        if (t == splitter) {
+                            count++;
+                        }
+                    }
+                }
+            }
+            count++;
+            return count;
         }
     };
 
