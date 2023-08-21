@@ -1078,12 +1078,11 @@ namespace MiniDoc {
             vec.push_back(c);
             return vec;
         }
-        
+
         std::size_t split_count(const char & splitter) const {
             std::size_t count = 0;
             auto s = descriptor_count();
             for (size_t i = 0; i < s; i++) {
-                GENERIC_PIECE_TABLE__PRINT_STRING(i);
                 auto & order = descriptor_at(i);
                 auto & descriptor = *order.ptr;
                 if (order.origin) {
